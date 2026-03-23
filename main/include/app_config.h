@@ -4,6 +4,7 @@
 #include "freertos/semphr.h"
 #include "freertos/event_groups.h"
 #include "esp_pm.h"
+#include "driver/gpio.h"
 
 // --- 1. PIN CONFIGURATIONS ---
 #define I2C_SDA_GPIO (gpio_num_t)21

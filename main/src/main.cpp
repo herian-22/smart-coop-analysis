@@ -4,9 +4,11 @@
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "esp_wifi.h"
-#include "esp_log.h"
 #include "nvs_flash.h"
+#include "esp_wifi.h"
+#include "esp_event.h"
+#include "esp_netif.h"
+#include "esp_log.h"
 #include "esp_sntp.h"
 
 // --- Custom Modules ---
@@ -15,6 +17,7 @@
 #include "web_server.h"
 #include "mqtt_handler.h"
 #include "tinyml_task.h"
+#include "system_monitor.h"
 
 static const char *TAG = "SmartCoop_Main";
 
@@ -128,12 +131,16 @@ extern "C" void app_main() {
     // 3. Initialize Hardware Modules (I2C, SHT3x, PCF8574, LCD)
     ESP_ERROR_CHECK(hw_init());
 
-    // 4. Start Base RTOS Tasks
-    xTaskCreate(taskUpdateLCD, "LCD", 8192, NULL, 2, NULL);
-    xTaskCreate(taskReadSHT, "SHT", 8192, NULL, 3, NULL);
-    xTaskCreate(taskReadAnalog, "Analog", 4096, NULL, 1, NULL); 
-    xTaskCreate(taskAnomalyDetection, "TinyML", 16383, NULL, 2, NULL); // Priority 2 - yields to MQTT
-    xTaskCreate(taskNetworkStack, "Network", 8192, NULL, 5, NULL);     // Priority 5 - highest, ensures MQTT ping response
+    // 4. Start Base RTOS Tasks with Core Affinity
+    // CORE 1 (APP_CPU): Hardware I/O and Heavy ML Computation
+    xTaskCreatePinnedToCore(taskUpdateLCD, "LCD", 4096, NULL, 2, NULL, 1);
+    xTaskCreatePinnedToCore(taskReadSHT, "SHT", 4096, NULL, 3, NULL, 1);
+    xTaskCreatePinnedToCore(taskReadAnalog, "Analog", 2048, NULL, 1, NULL, 1); 
+    xTaskCreatePinnedToCore(taskAnomalyDetection, "TinyML", 10240, NULL, 2, NULL, 1); 
+    
+    // CORE 0 (PRO_CPU): Networking Stack (Prioritized for low latency)
+    xTaskCreatePinnedToCore(taskNetworkStack, "Network", 4096, NULL, 5, NULL, 0);
+    xTaskCreatePinnedToCore(taskSystemMonitor, "SysMon", 4096, NULL, 1, NULL, 0); 
 
     // 5. Initialize Networking & WiFi
     ESP_ERROR_CHECK(esp_netif_init());

@@ -76,8 +76,8 @@ static OnlineLearningStats stats = {
 static float prev_mae = -1.0f;   // previous MAE value (-1 means uninitialized)
 static int   rising_count = 0;   // how many consecutive samples MAE has been rising
 // AI_INFERENCE_STRIDE etc. defined in app_config.h
-#define TREND_ANOMALY_STEPS 4    
-#define TREND_MIN_MAE       0.15f 
+#define TREND_ANOMALY_STEPS 12    // Ditingkatkan dari 4 ke 12 agar tidak terlalu "jumpy"
+#define TREND_MIN_MAE       0.20f   // Ditingkatkan dari 0.15 ke 0.20 
 
 static int inference_stride_counter = 0; 
 float normalize(float val, float min, float max) {
@@ -133,7 +133,7 @@ float calculate_dynamic_threshold() {
     return threshold;
 }
 
-bool detect_trend_anomaly(float mae) {
+bool detect_trend_anomaly(float mae, float current_temp) {
     if (stats.count < AI_WARMUP_SAMPLES || prev_mae < 0.0f) return false;
     
     // Ignore tiny fluctuations if error is very low
@@ -149,7 +149,13 @@ bool detect_trend_anomaly(float mae) {
     }
     
     if (rising_count >= TREND_ANOMALY_STEPS) {
-        ESP_LOGW(TAG, "[TREND] MAE rising %.4f -> %.4f (%d steps).", prev_mae, mae, rising_count);
+        // [OPTIMASI] Tambahkan guard fisik: Jangan anggap anomali jika suhu masih sangat aman (< 32.5C)
+        // Kecuali jika MAE sudah benar-benar tinggi (> 0.6)
+        if (current_temp < 32.5f && mae < 0.60f) {
+            return false; 
+        }
+
+        ESP_LOGW(TAG, "[TREND] MAE rising secara konsisten (%d steps).", rising_count);
         return true;
     }
     return false;
@@ -274,30 +280,34 @@ void taskAnomalyDetection(void *pvParameters) {
             ESP_LOGI(TAG, "New data received from Queue: T=%.2f, H=%.2f", current_temp, current_hum);
 
             // 2. Add to window buffer (sliding window)
-            window_buffer[window_idx][0] = current_temp;
-            window_buffer[window_idx][1] = current_hum;
-            window_idx++;
             inference_stride_counter++;
 
-            if (window_idx >= WINDOW_SIZE) {
+            if (window_idx < WINDOW_SIZE) {
+                // Filling up the window initially
+                window_buffer[window_idx][0] = current_temp;
+                window_buffer[window_idx][1] = current_hum;
+                window_idx++;
+
+                if (window_idx == WINDOW_SIZE) {
+                    if (!window_full) {
+                        ESP_LOGI(TAG, "Window buffer is now FULL (%d/%d). Starting inference cycles.", window_idx, WINDOW_SIZE);
+                        window_full = true;
+                    }
+                } else {
+                    static uint8_t fill_log_throttle = 0;
+                    if (fill_log_throttle++ % 5 == 0) { // Log every 5 samples
+                        ESP_LOGI(TAG, "Filling window... (%d/%d)", window_idx, WINDOW_SIZE);
+                    }
+                }
+            } else {
+                // Window is full, we must slide existing contents left by 1
                 for (int i = 0; i < WINDOW_SIZE - 1; i++) {
                     window_buffer[i][0] = window_buffer[i + 1][0];
                     window_buffer[i][1] = window_buffer[i + 1][1];
                 }
-
+                // Append newest values at the end of the window
                 window_buffer[WINDOW_SIZE - 1][0] = current_temp;
                 window_buffer[WINDOW_SIZE - 1][1] = current_hum;
-                window_idx = WINDOW_SIZE;
-
-                if (!window_full) {
-                    ESP_LOGI(TAG, "Window buffer is now FULL (%d/%d). Starting inference cycles.", window_idx, WINDOW_SIZE);
-                    window_full = true;
-                }
-            } else {
-                static uint8_t fill_log_throttle = 0;
-                if (fill_log_throttle++ % 5 == 0) { // Log every 5 samples
-                    ESP_LOGI(TAG, "Filling window... (%d/%d)", window_idx, WINDOW_SIZE);
-                }
             }
 
             // 3. Run inference
@@ -327,7 +337,7 @@ void taskAnomalyDetection(void *pvParameters) {
                     bool is_trend_anomaly = false;
 
                     if (!is_anomaly) {
-                        is_trend_anomaly = detect_trend_anomaly(mae);
+                        is_trend_anomaly = detect_trend_anomaly(mae, current_temp);
                         is_anomaly = is_trend_anomaly;
                     }
 
@@ -348,8 +358,8 @@ void taskAnomalyDetection(void *pvParameters) {
                     update_welford_stats(mae, current_temp, current_hum);
                     apply_rl_feedback(mae, current_temp, is_anomaly);
 
-                    // Print training/adaptation update every 20 inferences
-                    if (pico.inference_count % 20 == 0) {
+                    // Print training/adaptation update every 5 inferences
+                    if (pico.inference_count % 5 == 0) {
                         float variance = (stats.count > 1) ? (stats.M2_mae / stats.count) : 0.0f;
                         float std_dev = sqrtf(variance);
                         printf("\n\033[1;33m┌─── UPDATE MODEL ONLINE (Inference #%lu) ─────────────┐\033[0m\n", pico.inference_count);
@@ -408,6 +418,13 @@ void taskAnomalyDetection(void *pvParameters) {
         } else {
             // If no data received, still publish
             mqtt_publish_sensor_data();
+        }
+
+        // --- STACK TUNING MONITOR ---
+        static uint8_t stack_log_throttle = 0;
+        if (stack_log_throttle++ % 10 == 0) {
+            UBaseType_t hwm = uxTaskGetStackHighWaterMark(NULL);
+            ESP_LOGI(TAG, "[STACK TUNING] %s High Water Mark: %u bytes free", pcTaskGetName(NULL), hwm);
         }
 
         // IMPORTANT: delay harus di dalam loop

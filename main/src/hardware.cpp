@@ -28,19 +28,36 @@ static bool header_printed = false;
  *    can reclaim them cleanly — this prevents "GPIO not usable" warnings.
  * 4. Nulling device handles so i2cdev re-adds them on the next access.
  */
+
+ /**
+ * @brief Implementasi Pemulihan I2C Standar Industri.
+ * Memastikan driver dihapus total sebelum manipulasi GPIO manual.
+ */
 static void i2c_bus_reset(void) {
-    ESP_LOGW(TAG, "Performing I2C bus reset (bit-bang 9 SCL pulses)...");
+    ESP_LOGW(TAG, "Memulai pemulihan Bus I2C (Mode Kompatibilitas ESP-IDF 5.x)...");
+    
+    // Jangan panggil i2c_driver_delete untuk menghindari konflik "driver_ng"
+    // Kita langsung "ambil alih" pin secara paksa lewat reset_pin
+    
+    // Set handle ke NULL untuk mencegah akses tidak sengaja saat recovery
+    sensor_sht.i2c_dev.dev_handle = NULL;
+    pcf8574_dev.dev_handle = NULL;
 
-    // CRITICAL: We need to make sure the I2C driver is NOT using the pins before we bit-bang.
-    // However, since we are using i2cdev which wraps the driver, we'll try to release them via GPIO config.
+    vTaskDelay(pdMS_TO_TICKS(50));
 
-    // Step 1: Directly set GPIO direction without reconfiguring the full pin mux.
-    // Using gpio_set_direction avoids the "GPIO not usable" warning that gpio_config causes
-    // when called while the I2C driver still holds ownership of the pins.
-    gpio_set_direction(I2C_SCL_GPIO, GPIO_MODE_OUTPUT_OD);
-    gpio_set_direction(I2C_SDA_GPIO, GPIO_MODE_OUTPUT_OD);
+    // 2. Reset Pin secara total agar tidak ada peripheral yang tersangkut
+    gpio_reset_pin(I2C_SCL_GPIO);
+    gpio_reset_pin(I2C_SDA_GPIO);
 
-    // Step 2: Toggle SCL 9 times with SDA high to clock out any stuck slave
+    // 3. Konfigurasi eksplisit untuk bit-banging (Open Drain + Pullup)
+    gpio_config_t reset_conf = {};
+    reset_conf.mode = GPIO_MODE_OUTPUT_OD;
+    reset_conf.pull_up_en = GPIO_PULLUP_ENABLE;
+    reset_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
+    reset_conf.pin_bit_mask = (1ULL << I2C_SCL_GPIO) | (1ULL << I2C_SDA_GPIO);
+    gpio_config(&reset_conf);
+
+    // 4. Kirim 9 Pulsa SCL untuk memaksa Slave (SHT/LCD) melepaskan jalur SDA
     gpio_set_level(I2C_SDA_GPIO, 1);
     for (int i = 0; i < 9; i++) {
         gpio_set_level(I2C_SCL_GPIO, 0);
@@ -49,28 +66,31 @@ static void i2c_bus_reset(void) {
         vTaskDelay(pdMS_TO_TICKS(5));
     }
 
-    // Step 3: Generate STOP condition (SDA rises while SCL is high)
+    // 5. Generate kondisi STOP secara manual
     gpio_set_level(I2C_SCL_GPIO, 1);
     gpio_set_level(I2C_SDA_GPIO, 0);
     vTaskDelay(pdMS_TO_TICKS(5));
-    gpio_set_level(I2C_SDA_GPIO, 1);
-    vTaskDelay(pdMS_TO_TICKS(10));
+    gpio_set_level(I2C_SDA_GPIO, 1); // SDA naik saat SCL tinggi = STOP
+    vTaskDelay(pdMS_TO_TICKS(20));
 
-    // Step 4: Re-initialize the I2C pins to floating input to let driver reclaim them
-    gpio_config_t release_conf = {};
-    release_conf.mode = GPIO_MODE_INPUT;
-    release_conf.pull_up_en = GPIO_PULLUP_ENABLE; // Keep pullups active
-    release_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
-    release_conf.pin_bit_mask = (1ULL << I2C_SCL_GPIO) | (1ULL << I2C_SDA_GPIO);
-    gpio_config(&release_conf);
+    // 6. Inisialisasi ulang Driver I2C dan Perangkat dari nol
+    // Panggil i2cdev_init() untuk memastikan layer abstraksi siap
+    i2cdev_init();
 
-    // Step 5: Reset device handles
-    sensor_sht.i2c_dev.dev_handle = NULL;
-    pcf8574_dev.dev_handle = NULL;
+    // Re-inisialisasi SHT3x
+    sht3x_init_desc(&sensor_sht, SHT3X_I2C_ADDR_GND, I2C_NUM_0, I2C_SDA_GPIO, I2C_SCL_GPIO);
+    sensor_sht.i2c_dev.cfg.master.clk_speed = 100000; // Kecepatan aman 100kHz
+    sht3x_init(&sensor_sht);
 
-    vTaskDelay(pdMS_TO_TICKS(100)); // Wait for bus to settle
-    ESP_LOGI(TAG, "I2C bus reset complete. Devices will reconnect.");
+    // Re-inisialisasi LCD
+    pcf8574_init_desc(&pcf8574_dev, 0x27, I2C_NUM_0, I2C_SDA_GPIO, I2C_SCL_GPIO);
+    pcf8574_dev.cfg.master.clk_speed = 100000;
+    hd44780_init(&lcd);
+    hd44780_switch_backlight(&lcd, true);
+
+    ESP_LOGI(TAG, "Pemulihan I2C Selesai. Driver dan Perangkat dipasang ulang.");
 }
+
 
 esp_err_t hw_init(void) {
     esp_err_t res;
@@ -173,6 +193,13 @@ void taskReadSHT(void *pvParameters) {
                 xSemaphoreGive(i2cMutex);
             }
             // Delay moved INSIDE the for(;;) loop
+            
+            // --- STACK TUNING MONITOR ---
+            static uint8_t stack_log_throttle_sht = 0;
+            if (stack_log_throttle_sht++ % 10 == 0) {
+                ESP_LOGI(TAG, "[STACK TUNING] %s High Water Mark: %u bytes free", pcTaskGetName(NULL), uxTaskGetStackHighWaterMark(NULL));
+            }
+
             vTaskDelay(pdMS_TO_TICKS(2000));
         }
 }
@@ -229,6 +256,12 @@ void taskUpdateLCD(void *pvParameters) {
             }
 
             xSemaphoreGive(i2cMutex);
+        }
+
+        // --- STACK TUNING MONITOR ---
+        static uint8_t stack_log_throttle_lcd = 0;
+        if (stack_log_throttle_lcd++ % 10 == 0) {
+            ESP_LOGI(TAG, "[STACK TUNING] %s High Water Mark: %u bytes free", pcTaskGetName(NULL), uxTaskGetStackHighWaterMark(NULL));
         }
 
         vTaskDelay(pdMS_TO_TICKS(2000));

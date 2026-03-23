@@ -7,6 +7,7 @@ idf_component_register(
         "src/mqtt_handler.cpp"
         "src/tinyml/synthetic_inference.cpp"
         "src/rl_feedback.cpp"
+        "src/system_monitor.cpp"
     INCLUDE_DIRS 
         "include"
         "include/model"
