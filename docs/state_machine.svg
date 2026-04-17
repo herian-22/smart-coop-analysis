@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="780" height="480" viewBox="0 0 780 480">
+<rect width="780" height="480" rx="10" fill="#1a1a2e" stroke="#444" stroke-width="1"/>
+<defs>
+<marker id="arrowhead_27AE60" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto"><polygon points="0 0, 6 3, 0 6" fill="#27AE60"/></marker>
+<marker id="arrowhead_E74C3C" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto"><polygon points="0 0, 6 3, 0 6" fill="#E74C3C"/></marker>
+<marker id="arrowhead_2980B9" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto"><polygon points="0 0, 6 3, 0 6" fill="#2980B9"/></marker>
+<marker id="arrowhead_aaaaaa" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto"><polygon points="0 0, 6 3, 0 6" fill="#aaaaaa"/></marker>
+<marker id="arrowhead_7F8C8D" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto"><polygon points="0 0, 6 3, 0 6" fill="#7F8C8D"/></marker>
+</defs>
+<text x="390" y="34" font-family="monospace" font-size="18" font-weight="bold" fill="#e0e0e0" text-anchor="middle">🌡️ Temperature State Machine</text>
+<line x1="415.7" y1="224.6" x2="564.3" y2="135.4" stroke="#E74C3C" stroke-width="2" marker-end="url(#arrowhead_E74C3C)"/>
+<polygon points="564.3,135.4 560.0,143.8 554.8,135.3" fill="#E74C3C"/>
+<rect x="482" y="155" width="60" height="14" rx="3" fill="#1a1a2e" opacity="0.8"/><text x="510.0" y="166" font-family="monospace" font-size="10" fill="#E74C3C" text-anchor="middle">T > 30°C</text>
+<line x1="564.3" y1="135.4" x2="415.7" y2="224.6" stroke="#27AE60" stroke-width="2" marker-end="url(#arrowhead_27AE60)"/>
+<polygon points="415.7,224.6 420.0,216.2 425.2,224.7" fill="#27AE60"/>
+<rect x="442" y="189" width="60" height="14" rx="3" fill="#1a1a2e" opacity="0.8"/><text x="470.0" y="200" font-family="monospace" font-size="10" fill="#27AE60" text-anchor="middle">T ≤ 29°C</text>
+<line x1="364.3" y1="224.6" x2="215.7" y2="135.4" stroke="#2980B9" stroke-width="2" marker-end="url(#arrowhead_2980B9)"/>
+<polygon points="215.7,135.4 225.2,135.3 220.0,143.8" fill="#2980B9"/>
+<rect x="242" y="155" width="60" height="14" rx="3" fill="#1a1a2e" opacity="0.8"/><text x="270.0" y="166" font-family="monospace" font-size="10" fill="#2980B9" text-anchor="middle">T < 22°C</text>
+<line x1="215.7" y1="135.4" x2="364.3" y2="224.6" stroke="#27AE60" stroke-width="2" marker-end="url(#arrowhead_27AE60)"/>
+<polygon points="364.3,224.6 354.8,224.7 360.0,216.2" fill="#27AE60"/>
+<rect x="282" y="189" width="60" height="14" rx="3" fill="#1a1a2e" opacity="0.8"/><text x="310.0" y="200" font-family="monospace" font-size="10" fill="#27AE60" text-anchor="middle">T ≥ 23°C</text>
+<line x1="390.0" y1="270.0" x2="390.0" y2="390.0" stroke="#7F8C8D" stroke-width="2" marker-end="url(#arrowhead_7F8C8D)"/>
+<polygon points="390.0,390.0 385.0,382.0 395.0,382.0" fill="#7F8C8D"/>
+<rect x="355" y="322.0" width="74" height="14" rx="3" fill="#1a1a2e" opacity="0.8"/><text x="390.0" y="333.0" font-family="monospace" font-size="10" fill="#7F8C8D" text-anchor="middle">Sensor Off</text>
+<line x1="573.4" y1="145.0" x2="406.6" y2="395.0" stroke="#7F8C8D" stroke-width="2" marker-end="url(#arrowhead_7F8C8D)"/>
+<polygon points="406.6,395.0 406.9,385.6 415.2,391.2" fill="#7F8C8D"/>
+<rect x="560" y="282" width="74" height="14" rx="3" fill="#1a1a2e" opacity="0.8"/><text x="595.0" y="293" font-family="monospace" font-size="10" fill="#7F8C8D" text-anchor="middle">Sensor Off</text>
+<line x1="206.6" y1="145.0" x2="373.4" y2="395.0" stroke="#7F8C8D" stroke-width="2" marker-end="url(#arrowhead_7F8C8D)"/>
+<polygon points="373.4,395.0 364.8,391.2 373.1,385.6" fill="#7F8C8D"/>
+<rect x="150" y="282" width="74" height="14" rx="3" fill="#1a1a2e" opacity="0.8"/><text x="185.0" y="293" font-family="monospace" font-size="10" fill="#7F8C8D" text-anchor="middle">Sensor Off</text>
+<text x="390" y="462" font-family="monospace" font-size="10" fill="#888" text-anchor="middle">Hysteresis: NORMAL→HOT +1°C gap | NORMAL→COLD -1°C gap (prevents flicker)</text>
+<circle cx="390" cy="240" r="34" fill="#27AE60" stroke="white" stroke-width="2" opacity="0.92"/><text x="390" y="234" font-family="monospace" font-size="13" font-weight="bold" fill="white" text-anchor="middle">NORMAL</text><text x="390" y="250" font-family="monospace" font-size="10" fill="white" text-anchor="middle">22°C – 30°C</text>
+<circle cx="590" cy="120" r="34" fill="#E74C3C" stroke="white" stroke-width="2" opacity="0.92"/><text x="590" y="114" font-family="monospace" font-size="13" font-weight="bold" fill="white" text-anchor="middle">HOT</text><text x="590" y="130" font-family="monospace" font-size="10" fill="white" text-anchor="middle">> 30°C</text>
+<circle cx="190" cy="120" r="34" fill="#2980B9" stroke="white" stroke-width="2" opacity="0.92"/><text x="190" y="114" font-family="monospace" font-size="13" font-weight="bold" fill="white" text-anchor="middle">COLD</text><text x="190" y="130" font-family="monospace" font-size="10" fill="white" text-anchor="middle">< 22°C</text>
+<circle cx="390" cy="420" r="34" fill="#7F8C8D" stroke="white" stroke-width="2" opacity="0.92"/><text x="390" y="414" font-family="monospace" font-size="13" font-weight="bold" fill="white" text-anchor="middle">ERROR</text><text x="390" y="430" font-family="monospace" font-size="10" fill="white" text-anchor="middle">Sensor Fail</text>
+</svg>

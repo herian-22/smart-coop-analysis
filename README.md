@@ -1,9 +1,22 @@
 # 🤖 Mochi Robot: Context-Aware Desktop Companion
 
-![Mochi Demo](docs/mochi_demo.gif)
-*(Tambahkan file animasi GIF dari robot yang sedang berjalan di direktori `docs/mochi_demo.gif`)*
-
 Mochi Robot adalah proyek *Smart Environment Monitor* berbasis **ESP32** dan **ESP-IDF**. Lebih dari sekadar termometer biasa, Mochi mengemas data lingkungan ke dalam karakter virtual interaktif yang ditampilkan pada layar LCD 16x2. Mochi akan bereaksi terhadap suhu ruangan (SHT31) dengan mengubah ekspresi wajah (animasi pixel art khusus) dan memberikan respons audio melalui Buzzer.
+
+---
+
+## 🖥️ Tampilan LCD — Semua Mode
+
+> Simulasi *pixel-art* pada layar LCD 16×2 untuk setiap kondisi suhu yang dideteksi Mochi.
+
+![LCD States](docs/lcd_states.svg)
+
+| Mode | Kondisi | Perilaku |
+|------|---------|----------|
+| ✅ **NORMAL** | 22°C – 30°C | Mata oval terbuka, salam (*salute*), senyum kecil, kedip acak |
+| 🔥 **HOT** | > 30°C | Keringat berjatuhan, mulut ngos-ngosan, tangan kanan mengipas |
+| ❄️ **COLD** | < 22°C | Mata menyipit, mulut gemetar cepat (80 ms), tubuh menggigil |
+| ⚠️ **ERROR** | Sensor lepas | Mata silang (✖✖), tangan turun, tampilan `--C` |
+
 
 ---
 
@@ -20,6 +33,22 @@ Mochi Robot adalah proyek *Smart Environment Monitor* berbasis **ESP32** dan **E
   - *Dual-beep* transisi penggantian status suhu.
   - Alarm bahaya/kritis ketika T > 35°C bersamaan kedipan lampu LCD.
 - 🛡️ **Robust I2C Recovery**: Toleransi kesalahan bus hardware. Jika sensor SHT31 terputus secara fisik (Ghost Reads), ESP32 akan membaca *Fail Threshold* dan secara otomatis mereset I2C bus *driver* agar Mochi bisa menstabilkan dirinya.
+
+---
+
+## 🔄 Mesin Status Suhu (State Machine)
+
+> Transisi otomatis berbasis *hysteresis* — mencegah flicker saat suhu berada di ambang batas.
+
+![State Machine](docs/state_machine.svg)
+
+---
+
+## 🔧 Arsitektur Perangkat Keras
+
+> Koneksi I2C bus bersama antara LCD dan sensor SHT31, dengan Buzzer pada jalur PWM terpisah.
+
+![System Diagram](docs/system_diagram.svg)
 
 ---
 
