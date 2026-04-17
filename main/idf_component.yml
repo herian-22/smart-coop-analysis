@@ -3,15 +3,10 @@ dependencies:
   ## Required IDF version
   idf:
     version: '>=4.1.0'
-  # # Put list of dependencies here
-  
-  esp-idf-lib/sht3x: "^1.0.8"
+
+  # LCD via I2C (PCF8574 + HD44780)
   esp-idf-lib/hd44780: "^1.0.0"
   esp-idf-lib/pcf8574: "^1.0.0"
-  
-  # TensorFlow Lite for Microcontrollers
-  espressif/esp-tflite-micro: "^1.0.0"
-  
-  # MQTT Client is usually included in ESP-IDF natively 
-  # under `mqtt`, so it doesn't always need a separate component 
-  # entry unless using a third-party wrapper.
+
+  # Temperature & Humidity Sensor
+  esp-idf-lib/sht3x: "^1.0.8"

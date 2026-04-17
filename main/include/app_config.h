@@ -3,66 +3,46 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "freertos/event_groups.h"
-#include "esp_pm.h"
 #include "driver/gpio.h"
 
 // --- 1. PIN CONFIGURATIONS ---
 #define I2C_SDA_GPIO (gpio_num_t)21
 #define I2C_SCL_GPIO (gpio_num_t)22
+#define BUZZER_GPIO_NUM  33
 
-// --- 2. ENVIRONMENT & AI CONFIGURATIONS ---
-// Physical boundaries for what the REAL environment calls "Dangerous"
-#define ENV_TEMP_MIN 20.0f
-#define ENV_TEMP_MAX 34.0f   
-#define ENV_HUM_MIN 40.0f
-#define ENV_HUM_MAX 90.0f
+// --- 2. TEMPERATURE THRESHOLDS (°C) ---
+#define TEMP_COLD_THRESHOLD     22.0f   // Below this = COLD
+#define TEMP_HOT_THRESHOLD      30.0f   // Above this = HOT
+#define TEMP_HYSTERESIS         0.5f    // Hysteresis band to prevent jitter
 
-// --- 3. TINYML CONFIGURATIONS ---
-#define AI_WINDOW_SIZE 30
-#define AI_NUM_FEATURES 2
-#define AI_INFERENCE_STRIDE 5
-#define AI_WARMUP_SAMPLES 30
+// --- 3. DISPLAY MODE (temperature-reactive) ---
+typedef enum {
+    DISPLAY_MODE_NORMAL,   // 22–30°C: Happy face, mouth smile
+    DISPLAY_MODE_COLD,     // <22°C:   Squinting eyes, chattering mouth, shiver
+    DISPLAY_MODE_HOT,      // >30°C:   Sweating, mouth open, backlight blink
+    DISPLAY_MODE_ERROR     // Sensor fail: confused face (X eyes)
+} DisplayMode;
 
-// --- 4. EVENT GROUP BITS ---
-#define WIFI_CONNECTED_BIT  BIT0
-#define MQTT_CONNECTED_BIT  BIT1
+#define SHT_FAIL_THRESHOLD  5   // Consecutive failures before ERROR mode
 
-// Model training statistics (Static - used for shifting)
-#define MODEL_TRAINING_MEAN_TEMP 25.1016f
-#define MODEL_TRAINING_MEAN_HUM  50.0806f
-#define MODEL_TRAINING_STD       0.75f  // Approximate
+// --- 4. BUZZER COMMANDS ---
+typedef enum {
+    BUZZER_CMD_BOOT,           // Cheerful boot melody
+    BUZZER_CMD_STATE_CHANGE,   // Dual beep on mode transition
+    BUZZER_CMD_ALARM_HOT       // Rapid alarm for T>35°C
+} buzzer_cmd_t;
 
-// --- 3. GLOBAL ENUMS & DATA STRUCTURES ---
-enum SystemState { BOOTING, CONFIG_WIFI, CONNECTED, RUNNING };
+// --- 5. SYSTEM STATE ---
+enum SystemState { BOOTING, FACE_ANIM };
 
-struct SampleData {
-    float temp;
-    float hum;
-};
-
+// --- 6. SENSOR DATA ---
 struct SensorData {
-    float temp = 0.0;
-    float hum = 0.0;
-    char date_str[20] = "Waiting Sync...";
-    char connected_ssid[32] = "Disconnect";
-    bool anomaly_detected = false;
-    // PICO & AI Metrics (populated by TinyML task)
-    float mae = 0.0;
-    uint32_t inference_count = 0;
-    uint32_t latency_us = 0;
-    float cpu_load = 0.0;
-    size_t memory_used = 0;
-    // Training/Learning Metrics
-    int recent_count = 0;
-    bool is_training = false;
-    float golden_temp[3];
-    float golden_hum[3];
+    float temp = 0.0f;
+    float hum  = 0.0f;
 };
 
-// --- 3. EXTERN GLOBAL VARIABLES ---
+// --- 7. EXTERN GLOBAL VARIABLES ---
 extern SystemState currentState;
-extern SensorData dataKandang;
+extern DisplayMode currentDisplayMode;
+extern SensorData  sensorData;
 extern SemaphoreHandle_t dataMutex;
-extern EventGroupHandle_t system_event_group;
-extern QueueHandle_t sensorQueue;
-

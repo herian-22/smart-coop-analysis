@@ -1,0 +1,11 @@
+dependencies:
+  esp-idf-lib/bmp280:
+    version: '*'
+  esp-idf-lib/esp_idf_lib_helpers:
+    version: '*'
+  esp-idf-lib/hd44780:
+    version: '*'
+  esp-idf-lib/pcf8574:
+    version: '*'
+description: simplest_barometer
+version: 1.0.0

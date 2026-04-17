@@ -2,27 +2,12 @@ idf_component_register(
     SRCS 
         "src/main.cpp" 
         "src/hardware.cpp"
-        "src/tinyml/tinyml_task.cpp"
-        "src/web_server.cpp"
-        "src/mqtt_handler.cpp"
-        "src/tinyml/synthetic_inference.cpp"
-        "src/rl_feedback.cpp"
-        "src/system_monitor.cpp"
+        "src/face_assets.cpp"
+        "src/lcd_face.cpp"
     INCLUDE_DIRS 
         "include"
-        "include/model"
     REQUIRES
-        esp_pm
         nvs_flash
-        esp_wifi
-        esp_event
-        esp_netif
-        esp_http_server
-        mqtt
         driver
-        esp_timer
-        app_update
         esp_system
-        json
-        lwip
 )
